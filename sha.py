@@ -1,208 +1,177 @@
-#! python3
+#!/usr/bin/python3
 
-def binary(x, digits=None):
-    if type(x) is int:
-        res = bin(x)[2:]
-    elif type(x) is str:
-        res = ''.join(bin(ord(c)) for c in x).replace('0b','')
+import struct
+from constants import *
 
-    if digits:
-        res = '0' * (digits - len(res)) + res
+_k = FRACTIONAL_PARTS_OF_CUBES_OF_PRIMES
 
+# Mask off to 64 bit word
+def mask(a):
+    return ( a & 0xffffffffffffffff)
+
+# Rotate right 64 bit
+def rr(x,y):
+    one = (x >> y)
+    two = (x << (64-y))
+    three = one | two
+    return mask(three) 
+
+# Two standard mix functions for the state expand
+def f0(w):
+    one = rr(w[-15], 1)
+    two = rr(w[-15], 8)
+    three = (w[-15] >> 7)
+    res = one ^ two ^ three
     return res
 
-def binary_xor(a, b): # one bit character strings
-    if a == b: return '0'
-    else: return '1'
-
-def xor(*args):
-    res = '0' * len(args[0])
-    for arg in args:
-        res = ''.join(binary_xor(resj, argj) for resj, argj in zip(res, arg))
+def f1(w):
+    one = rr(w[-2], 19)
+    two = rr(w[-2], 61)
+    three = (w[-2] >> 6)
+    res = one ^ two ^ three
     return res
 
-def ror(x, m):
-    m = m % len(x)
-    x = x[-m:] + x[:-m]
-    return x
-
-def lsl(x, m):
-    if m > len(x): return '0' * len(x)
-    return x[m:] + '0'*m
-
-
-
-
-padding = lambda num, m_len:"0" * (m_len - len(num)) + num
-H = [0x6a09e667f3bcc908, 0xbb67ae8584caa73b, 0x3c6ef372fe94f82b, 0xa54ff53a5f1d36f1, 
-   0x510e527fade682d1, 0x9b05688c2b3e6c1f, 0x1f83d9abfb41bd6b, 0x5be0cd19137e2179]
-H = [padding(bin(i)[2:], 64) for i in H]
-k = [0x428a2f98d728ae22, 0x7137449123ef65cd, 0xb5c0fbcfec4d3b2f, 0xe9b5dba58189dbbc, 0x3956c25bf348b538, 
-   0x59f111f1b605d019, 0x923f82a4af194f9b, 0xab1c5ed5da6d8118, 0xd807aa98a3030242, 0x12835b0145706fbe, 
-   0x243185be4ee4b28c, 0x550c7dc3d5ffb4e2, 0x72be5d74f27b896f, 0x80deb1fe3b1696b1, 0x9bdc06a725c71235, 
-   0xc19bf174cf692694, 0xe49b69c19ef14ad2, 0xefbe4786384f25e3, 0x0fc19dc68b8cd5b5, 0x240ca1cc77ac9c65, 
-   0x2de92c6f592b0275, 0x4a7484aa6ea6e483, 0x5cb0a9dcbd41fbd4, 0x76f988da831153b5, 0x983e5152ee66dfab, 
-   0xa831c66d2db43210, 0xb00327c898fb213f, 0xbf597fc7beef0ee4, 0xc6e00bf33da88fc2, 0xd5a79147930aa725, 
-   0x06ca6351e003826f, 0x142929670a0e6e70, 0x27b70a8546d22ffc, 0x2e1b21385c26c926, 0x4d2c6dfc5ac42aed, 
-   0x53380d139d95b3df, 0x650a73548baf63de, 0x766a0abb3c77b2a8, 0x81c2c92e47edaee6, 0x92722c851482353b, 
-   0xa2bfe8a14cf10364, 0xa81a664bbc423001, 0xc24b8b70d0f89791, 0xc76c51a30654be30, 0xd192e819d6ef5218, 
-   0xd69906245565a910, 0xf40e35855771202a, 0x106aa07032bbd1b8, 0x19a4c116b8d2d0c8, 0x1e376c085141ab53, 
-   0x2748774cdf8eeb99, 0x34b0bcb5e19b48a8, 0x391c0cb3c5c95a63, 0x4ed8aa4ae3418acb, 0x5b9cca4f7763e373, 
-   0x682e6ff3d6b2b8a3, 0x748f82ee5defb2fc, 0x78a5636f43172f60, 0x84c87814a1f0ab72, 0x8cc702081a6439ec, 
-   0x90befffa23631e28, 0xa4506cebde82bde9, 0xbef9a3f7b2c67915, 0xc67178f2e372532b, 0xca273eceea26619c, 
-   0xd186b8c721c0c207, 0xeada7dd6cde0eb1e, 0xf57d4f7fee6ed178, 0x06f067aa72176fba, 0x0a637dc5a2c898a6, 
-   0x113f9804bef90dae, 0x1b710b35131c471b, 0x28db77f523047d84, 0x32caab7b40c72493, 0x3c9ebe0a15c9bebc, 
-   0x431d67c49c100d4c, 0x4cc5d4becb3e42b6, 0x597f299cfc657e2a, 0x5fcb6fab3ad6faec, 0x6c44198c4a475817]
-k = [padding(bin(i)[2:], 64) for i in k]
-
-
-
-def add( * args):
-    for i in args:
-        assert len(i) == len(args[0])
-    ans = ''
-    i = len(args[0])
-    c = 0
-    while i:
-        i -= 1
-        c = sum(int(num[i]) for num in args) + c
-        ans = str(c%2) + ans
-        c >>= 1
-    return ans
-
-def pad_to_1024_multiple(code):
-    width = len(code)
+# expanding from 16 words to 80 words and returning the list of words    
+def expand_state(c):
+    w = list(struct.unpack('!16Q', c))
     
-    remaining_width = 1024 - width % 1024
-
-    width_of_size_of_original_msg = 128
-    tail = binary('width')
-    tail = '0' * (width_of_size_of_original_msg - len(tail)) + tail
-    remaining_width -= width_of_size_of_original_msg
-
-    padding = '1' + '0' * (remaining_width - 1)
-
-    # print("ori", code, len(code))
-    # print("pad", padding, len(padding))
-    # print("tail", tail, len(tail))
-
-    code = code + padding + tail
-    assert (len(code) % 1024 == 0)
-    return code
-
-word_len = 64
-
-def compression_function(hi, mi):
-
-    assert (len(mi) == 16)
-    assert (len(hi) == 8)
-
-    # w needs to contain 80 words
-    w = mi
-
-    rotshift_l_m_n = lambda x, l, m, n: xor(ror(x, l), ror(x, m), lsl(x, n))
-    rotshift_1_8_7 = lambda x: rotshift_l_m_n(x, 1, 8, 7)
-    rotshift_19_61_6 = lambda x: rotshift_l_m_n(x, 19, 61, 6)
-
     for i in range(16, 80):
-        w.append(xor(
-            w[i - 16], 
-            rotshift_1_8_7(w[i - 15]),
-            w[i - 7],
-            rotshift_19_61_6(w[i - 2]),
-
-        ))
+        mix1 = f1(w)
+        mix2 = f0(w)
+        three = w[-16]
+        four = w[-7]
+        summ = mix1 + mix2 + three + four
+        res = mask(summ)
+        w.append(res)
         
+    return w
+
+# sha512 inner loop operations
+
+# rotate A from mixer 1
+def s0(a):
+    one = rr(a, 28)
+    two = rr(a, 34)
+    three = rr(a, 39)
+    res = one ^ two ^ three
+    return res
+
+# rotate E from mixer 2
+def s1(e):
+    one = rr(e, 14)
+    two = rr(e, 18)
+    three = rr(e, 41)
+    res = one ^ two ^ three
+    return res
+
+# majority from mixer 1
+def maj(v):
+    first = v[0] & v[1] 
+    second = v[0] & v[2]
+    third = v[1] & v[2]
+    res = first | second | third
+    return res
+
+# conditional from mixer 2
+def conditional(v):
+    first = v[0] & v[1]
+    second = ~v[0] & v[2]
+    res = first | second
+    return res
+
+def mixer_one(v):
+    return s0(v[0]) + maj(v)
+
+def mixer_two(v,i,w):
+    first = s1(v[4])
+    second = conditional(v[4:7])
+    summ = first
+    summ += second
+    summ += v[7]
+    summ += w[i]
+    summ += _k[i]
+    return summ
 
 
+def do_chunk(c, h):
+    w = expand_state(c)
+    v = h # a0:h0 = h; v = a:h
 
-def merkle_damgard(code):
-    M = [code[i: i+1024] for i in range(len(code)//1024)]
+    for i in range(80):
+        mix1 = mixer_one(v)
+        mix2 = mixer_two(v, i, w)
+        x = mask(mix1 + mix2)
+        y = mask(v[3] + mix2)
+        v = (x, v[0], v[1], v[2], y, v[4], v[5], v[6])
 
-    # For SHA-512, the initial hash value, H(0), consists of the following eight 64-bit words, in hex. These words were obtained by taking the first 64 bits of the fractional parts of the square roots of the first eight prime numbers.
-    hi = [0x6a09e667f3bcc908, 0xbb67ae8584caa73b, 0x3c6ef372fe94f82b, 0xa54ff53a5f1d36f1, 
-   0x510e527fade682d1, 0x9b05688c2b3e6c1f, 0x1f83d9abfb41bd6b, 0x5be0cd19137e2179]
-    hi = [binary(hij, digits=64) for hij in hi]
-    for mi in M:
-        mi = [mi[i: i+64] for i in range(len(mi)//64)]
-        # print(len(mi), )
-        hi = compression_function(hi, mi)
-        print(hi)
+    res = [mask(x+y) for x,y in zip(h, v)] # adding a:h to initial a0:h0
+    return res
 
-def pipeline(text):
-    code = binary(text)
-    print(len(code))
-    code = pad_to_1024_multiple(code)
-    code = merkle_damgard(code)
-    # code = sha_512(code)
-    return code
+# pad message, +'1' bit, then '0' bits to fit evenly mod 1024 bit w/
+# 128 bit msg length at the end. Make extra chunk if it won't fit. 
+def pad(m):
+    # print(m, len(m))
+    length_in_bits = len(m) * 8 # each utf-8 character is 8 bits
+    tail = struct.pack("!Q", length_in_bits)
+    tail = b"\x00" * 8 + tail # concatenation, beware b'f' and b'\x65' are the same because it's f the alphabet not f as in 15
 
-def main():
-    # plain  =  input('Enter text: ')
-    plain = 'helloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworldhelloworld'
-    print('Result:', pipeline(plain))
-"""
-    tmp = []
-    block_size = 1024
-    while code:
-        tmp +=  [code[:block_size]]
-        code = code[block_size:]
-    word_size = 64
-    for block in tmp:
-        w = [] # the words will store here
-        # each word is 64 bit size
-        assert len(block) == 1024
-        # the block must break up into 16 words and goes into w[0] through w[15]
-        while block:
-            w.append(block[:word_size])
-            block = block[word_size:]
-        assert len(w) == 16 # 1024/64 = 16
-        w_count = 80
-        for i in range(16, w_count + 1): # i : 16, 17, 18, ..., 80
-            s0 = XOR(rightRotate(w[i - 15], 28), rightRotate(w[i - 15], 8))
-            s0 = XOR(s0, rightRotate(w[i - 15], 7))
-            s1 = XOR(rightRotate(w[i - 2], 19), rightRotate(w[i - 2], 61))
-            s1 = XOR(s0, rightRotate(w[i - 2], 6))
-            w.append(add(w[i - 16], s0, w[i - 7], s1))
-        a = H[0]
-        b = H[1]
-        c = H[2]
-        d = H[3]
-        e = H[4]
-        f = H[5]
-        g = H[6]
-        h = H[7]
-        for i in range(w_count):
-            s1 = XOR(rightRotate(e, 14), rightRotate(e, 18))
-            s1 = XOR(s1, rightRotate(e, 41))
-            ch = XOR(AND(e, f), AND(NOT(e), g))
-            #print("_" * 10)
-            temp1 = add(h, s1, ch, k[i], w[i])
-            s0 = XOR(rightRotate(a, 28), rightRotate(a, 34))
-            s0 = XOR(s0, rightRotate(a, 39))
-            maj = XOR(AND(a, b), AND(a, c))
-            maj = XOR(maj, AND(b, c))
-            temp2 = add(s0, maj)
+    one = (len(m)%128)>(128-16-1)
+    two = 128 if one else 0
+    three = (128-16-1) + two -(len(m)%128)
+    four = b"\x00" * three
+    # print(two, three, four, len(four))
+    padding = b"\x80"  + four
+    # print(padding, len(padding))
+    return m + padding + tail
 
-            h = g
-            g = f
-            f = e
-            e = add(d, temp1)
-            d = c
-            c = b
-            b = a
-            a = add(temp1, temp2)
-        H[0] = add(H[0], a)
-        H[1] = add(H[1], b)
-        H[2] = add(H[2], c)
-        H[3] = add(H[3], d)
-        H[4] = add(H[4], e)
-        H[5] = add(H[5], f)
-        H[6] = add(H[6], g)
-        H[7] = add(H[7], h)
-    # print(H)
-    code = "".join(H)
-    print(hex(int(code, base = 2)))
-"""
+def merkle_damgard(m, h):
+    for i in range(0, len(m), 128):
+        chunk = m[i: i + 128]
+        compression_result = do_chunk(chunk, h)
+        h = compression_result
+    res = struct.pack("!8Q",*h)  # ! - big endian, 8 - 8 params that follow, Q - unsigned long long
+    return res
 
-main()
+def sha512(msg):
+    initial_hash = FRACTIONAL_PARTS_OF_SQRTS_OF_PRIMES
+    msg = pad(msg)
+    res = merkle_damgard(msg, initial_hash)
+    return res
+
+    # Run some test vectors (from nist.gov, reformatted for python use)
+    # The final one, 'a'*1000000, will bottom out max_recursion in most
+    # setups since it does 
+    #   f( rest, state) => f( rest[size:], do(rest[:size], state))
+    # spawning 1e6//128 == 7.8k depth
+
+def do_some_tests():
+    tvs = [
+        {"m":"abc", "r256": "ba7816bf 8f01cfea 414140de 5dae2223 b00361a3 96177a9c b410ff61 f20015ad", "r512": "ddaf35a193617aba cc417349ae204131 12e6fa4e89a97ea2 0a9eeee64b55d39a 2192992a274fc1a8 36ba3c23a3feebbd 454d4423643ce80e 2a9ac94fa54ca49f"},
+        {"m": "", "r256": "e3b0c442 98fc1c14 9afbf4c8 996fb924 27ae41e4 649b934c a495991b 7852b855", "r512": "cf83e1357eefb8bd f1542850d66d8007 d620e4050b5715dc 83f4a921d36ce9ce 47d0d13c5d85f2b0 ff8318d2877eec2f 63b931bd47417a81 a538327af927da3e"}, 
+        {"m": "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq", "r256": "248d6a61 d20638b8 e5c02693 0c3e6039 a33ce459 64ff2167 f6ecedd4 19db06c1", "r512": "204a8fc6dda82f0a 0ced7beb8e08a416 57c16ef468b228a8 279be331a703c335 96fd15c13b1b07f9 aa1d3bea57789ca0 31ad85c7a71dd703 54ec631238ca3445"}, 
+        # {"m": "abcdefghbcdefghicdefghijdefghijkefghijklfghijklmghijklmnhijklmnoijklmnopjklmnopqklmnopqrlmnopqrsmnopqrstnopqrstu", "r256": "cf5b16a7 78af8380 036ce59e 7b049237 0b249b11 e8f07a51 afac4503 7afee9d1", "r512": "8e959b75dae313da 8cf4f72814fc143f 8f7779c6eb9f7fa1 7299aeadb6889018 501d289e4900f7e4 331b99dec4b5433a c7d329eeb6dd2654 5e96e55b874be909"}, 
+        # {"m": "a"*1000000, "r256": "cdc76e5c 9914fb92 81a1c7e2 84d73e67 f1809a48 a497200e 046d39cc c7112cd0", "r512": "e718483d0ce76964 4e2e42c7bc15b463 8e1f98b13b204428 5632a803afa973eb de0ff244877ea60a 4cb0432ce577c31b eb009c5c2c49aa2e 4eadb217ad8cc09b"}
+    ]
+    # for tv in tvs[:-1]:  # Remove [:-1] to not skip recursion-killer-size case
+    for tv in tvs:
+        m = tv['m']
+        realr = tv['r512'].replace(" ","")
+        ncr = sha512(m.encode())
+        calcr = (''.join("%02x"%(a) for a in ncr))
+        if realr!=calcr:
+            print("FAIL")
+            print(realr)
+            print(calcr)
+            quit()
+        else:
+            print("PASS")
+            # print(realr)
+            # print(calcr)
+
+if __name__ == '__main__':
+    do_some_tests()
+
+    # m = 'abc'
+    # ncr = sha512(m.encode())
+    # calcr = (''.join("%02x"%(a) for a in ncr))
+    # print(calcr)
